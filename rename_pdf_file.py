@@ -12,13 +12,13 @@ class GuiFrontend:
 
     @staticmethod
     def left_col():
-        """左側のカラムを返す"""
+        """左側の列を返す"""
 
         # 受け入れるファイルタイプを設定
-        accepted_file_types = (("PDF Files", "*.pdf"),)
+        accepted_file_types = (('PDF Files', '*.pdf'),)
 
         layout = [
-            [sg.Text('PDF'), sg.InputText(key='DOC_NAME', enable_events=True),  # PDFファイルパスの入力フィールド
+            [sg.Text('PDF'), sg.InputText(key='DOC_NAME', enable_events=True, disabled=True),  # PDFファイルパスの入力フィールド
              sg.FileBrowse(file_types=accepted_file_types, button_text='選択'),  # ファイル選択ダイアログを表示するボタン
              sg.Button('前へ'),  # 前のページに移動するボタン
              sg.Button('次へ')],  # 次のページに移動するボタン
@@ -29,7 +29,7 @@ class GuiFrontend:
 
     @staticmethod
     def right_col():
-        """右側のカラムを返す"""
+        """右側の列を返す"""
 
         layout = [
             [sg.Text('日　付'), sg.Input(key='date_input')],  # 日付の入力フィールド
@@ -43,7 +43,7 @@ class GuiFrontend:
     def layout(self):
         """ウィンドウのレイアウトを定義"""
         return [
-            [self.left_col(), sg.VSeparator(), self.right_col()]  # 左カラム、セパレータ、右カラムの配置
+            [self.left_col(), sg.VSeparator(), self.right_col()]  # 左列、セパレータ、右列の配置
         ]
 
     def window(self):
@@ -51,7 +51,6 @@ class GuiFrontend:
         return sg.Window(title=self.title,
                          layout=self.layout(),
                          return_keyboard_events=True,
-                         use_default_focus=False,
                          size=(1000, 750),
                          finalize=True)
 
@@ -59,35 +58,38 @@ class GuiFrontend:
 class GuiBackend:
     def __init__(self):
         self.doc = None
+        self.doc_list_tab = []
 
     def set_doc(self, doc_name):
+        """PDFドキュメントを設定する"""
         self.doc = fitz.open(doc_name)
-        file_name = os.path.basename(doc_name)  # ファイルパスからファイル名のみを抽出
+        file_name = os.path.basename(doc_name)
         return file_name
 
-
     def get_page_count(self):
+        """ページ数を返す"""
         return len(self.doc)
 
-    def get_doc_list_tab(self):
-        page_count = self.get_page_count()
-        return [None] * page_count
+    def get_page(self, page_num=0):
+        """
+        指定されたページ番号に対応するPDFのページを返す
+        :param page_num: ページ番号 (デフォルト: 0)
+        :return: ページの画像データ  (バイト列)
+        """
 
-    def get_doc_list(self, page_num):
-        doc_list_tab = self.get_doc_list_tab()
-        return doc_list_tab[page_num]
+        # もし表示リストが存在しない場合、またはリストの長さがページ番号+1よりも短い場合
+        # またはリストの該当する位置がNoneである場合、表示リストを取得してリストに格納する
+        if len(self.doc_list_tab) < page_num + 1 or not self.doc_list_tab[page_num]:
+            self.doc_list_tab.extend([None] * (page_num + 1 - len(self.doc_list_tab)))
+            self.doc_list_tab[page_num] = self.doc[page_num].get_displaylist()
 
-    def get_page(self, page_num=0, zoom=0):
-        """PDFの指定されたページを返す"""
-        doc_list = self.get_doc_list(page_num)
-        doc_list_tab = self.get_doc_list_tab()
-        if not doc_list:
-            doc_list_tab[page_num] = self.doc[page_num].get_displaylist()
-            doc_list = doc_list_tab[page_num]
+        # 指定されたページ番号に対応する表示リストを取得する
+        doc_list = self.doc_list_tab[page_num]
 
+        # 表示リストからピクセルマップを取得する
         pix = doc_list.get_pixmap(alpha=False)
 
-        # もしファイルのサイズの幅が500以上だったら、横幅が500以下になるように縮小する
+        # もしファイルのサイズの幅が680以上だったら、横幅が680以下になるように縮小する
         if pix.width > 680:
             zoom = 680 / pix.width
             pix = doc_list.get_pixmap(alpha=False, matrix=fitz.Matrix(zoom, zoom))
@@ -128,13 +130,11 @@ class PdfReader:
 
     def event_loop(self):
         """イベントループする"""
-        next_page_event = ("次へ", "MouseWheel:Down")
-        prev_page_event = ("前へ", "MouseWheel:Up")
-        enter_event = chr(13)
+        next_page_event = ('次へ', 'MouseWheel:Down')
+        prev_page_event = ('前へ', 'MouseWheel:Up')
 
         while True:
             event, values = self.window.read(timeout=100)
-            zoom = 0
             # ページ更新の制御
             is_page_update = False
 
@@ -150,7 +150,7 @@ class PdfReader:
                 self.page = 0
                 is_page_update = True
 
-            # doc_nameが指定されておらず、何らかのイベントが発生
+            # doc_nameが指定されていないときにイベントが発生したら、何もしない
             if event and not self.doc_name:
                 continue
 
@@ -166,12 +166,11 @@ class PdfReader:
 
             # 表示ページの更新
             if is_page_update:
-                data = self.backend.get_page(self.page, zoom)
+                data = self.backend.get_page(self.page)
                 self.window['IMAGE'].Update(data=data)
 
+            # 実行ボタンが押されたら、入力された値を取得する
             if event == '実行':
-
-
                 date = values['date_input']
                 partner = values['partner_input']
                 amount = values['amount_input']
@@ -181,10 +180,14 @@ class PdfReader:
                     sg.popup('日付を8桁の数字で入力してください')
                     continue
 
+                # もし金額が数字でなかったら、メッセージを表示して再度入力する
+                if not amount.isdigit():
+                    sg.popup('金額を数字で入力してください')
+                    continue
+
+                # もし日付と相手と金額が入力されていたら、ファイル名を変更する
                 if date and partner and amount:
                     if self.doc_name:
-                        # base_name = os.path.basename(self.doc_name)
-                        # base_name_without_ext = os.path.splitext(base_name)[0]
                         self.backend.doc.close()  # ファイルを閉じる
                         new_filename = f"{date}_{partner}_{amount}.pdf"
                         new_filepath = os.path.join(os.path.dirname(self.doc_name), new_filename)
@@ -192,17 +195,16 @@ class PdfReader:
                         os.rename(self.doc_name, new_filepath)
 
                         sg.popup(f'ファイル名を変更しました！ {new_filename}', title='完了')
-
-                    else:
-                        sg.popup("Please select a PDF file")
+                        self.window['IMAGE'].update(data=None)
+                        self.window['DOC_NAME'].update(value='')
                 else:
-                    sg.popup("Please enter all fields")
+                    sg.popup('すべて入力してください')
 
 
-def job():
+def main():
     gui = PdfReader()
     gui.event_loop()
 
 
 if __name__ == '__main__':
-    job()
+    main()
