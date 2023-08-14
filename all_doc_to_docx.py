@@ -1,4 +1,5 @@
 # 選択したフォルダのサブフォルダ内も含めて.docファイルを.docxファイルに変換する
+# .docxに変換したら.docファイルはゴミ箱に削除する
 # pip install pywin32
 # pip install send2trash
 
