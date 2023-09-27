@@ -23,11 +23,14 @@ dajare_list = [
     'チョコをちょこっと',
 ]
 
+# スレッドを管理する変数
+thread = None
+
 # レイアウトの定義
 layout = [
     [sg.Text("回数: "), sg.InputText(key='count', default_text='1')],
     [sg.Text("読み上げるテキスト: "), sg.Text('', size=(30, 1), key='output')],
-    [sg.Button('実行'), sg.Button('終了')],
+    [sg.Button('実行'), sg.Button('停止'), sg.Button('終了')],
 ]
 
 # ウィンドウの生成
@@ -35,12 +38,11 @@ window = sg.Window('テキスト読み上げアプリ', layout)
 
 
 def read_aloud(count):
-    """
-    テキストを読み上げる
-    :param count: 読み上げる回数
-    :return:
-    """
+    global thread
     for _ in range(int(count)):
+        if thread is not None and not thread.is_alive():
+            break  # スレッドが中断された場合はループを終了
+
         dajare = random.choice(dajare_list)  # ランダムにダジャレを選択
         window['output'].update(dajare)  # テキストを表示
         # テキストを音声に変換
@@ -61,14 +63,17 @@ def read_aloud(count):
 
 # ボタンのイベントハンドラ
 def button_handler(event):
-    """
-    ボタンのイベントハンドラ
-    :param event:
-    :return:
-    """
+    global thread
     if event == '実行':
         count = window['count'].get()
-        threading.Thread(target=read_aloud, args=(count,)).start()  # 読み上げを別スレッドで実行
+        # スレッドが実行中でない場合にスレッドを開始
+        if thread is None or not thread.is_alive():
+            thread = threading.Thread(target=read_aloud, args=(count,))
+            thread.start()
+    elif event == '停止':
+        # スレッドを中断
+        if thread is not None and thread.is_alive():
+            thread.join()
     elif event == '終了':
         window.close()  # ウィンドウを閉じる
 
@@ -85,5 +90,5 @@ def main():
     window.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
