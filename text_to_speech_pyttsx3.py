@@ -5,7 +5,6 @@ pip install pyttsx3
 """
 
 import random
-import threading
 import time
 
 import PySimpleGUI as sg
@@ -50,8 +49,7 @@ def create_gui():
     ]
 
     # ウィンドウの生成
-    window = sg.Window('テキスト読み上げアプリ', layout)
-    return window
+    return sg.Window('テキスト読み上げアプリ', layout)
 
 
 def read_aloud_thread(window, count, sleep_duration):
@@ -92,10 +90,7 @@ def main():
         if event == '実行':
             count = int(values['count_slider'])
             sleep_duration = int(values['slider'])
-
-            # スレッドを開始
-            thread = threading.Thread(target=read_aloud_thread, args=(window, count, sleep_duration))
-            thread.start()
+            window.start_thread(lambda: read_aloud_thread(window, count, sleep_duration), end_key='-THREAD_END-')
         elif event in ('終了', sg.WIN_CLOSED):
             break
 
