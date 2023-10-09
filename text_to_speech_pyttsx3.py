@@ -56,6 +56,7 @@ def read_aloud_thread(window, count, sleep_duration):
     """
     ダジャレを読み上げる
 
+    :param window: ウィンドウ
     :param count: 読み上げる回数
     :param sleep_duration: 待機時間
     :return:
