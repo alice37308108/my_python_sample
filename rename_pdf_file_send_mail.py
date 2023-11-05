@@ -189,7 +189,8 @@ class PdfReader:
         amount = values['amount_input']
         section = values['section_input']
         not_adopted = values['not_adopted_input']
-        values_dict = {'date': date, 'partner': partner, 'amount': amount, 'section': section,}
+        values_dict = {'date': date, 'partner': partner, 'amount': amount, 'section': section,
+                       'not_adopted': not_adopted,}
 
         new_filename = self.rename_pdf(date, partner, amount, section, not_adopted)
         return new_filename, values_dict
@@ -228,8 +229,19 @@ class PdfReader:
         outlook = win32.Dispatch('Outlook.Application')
         mail_item = outlook.CreateItem(0)  # メールアイテムを作成
 
-        mail_text = f'{values_list["date"]} {values_list["partner"]} {values_list["amount"]} {values_list["section"]}'
-        mail_item.Subject = 'メールの件名'  # 件名を設定
+        mail_text = (
+            f'次のとおり電子取引データを送付するのでよろしくお願いします🌷 \n\n'
+            f'日　　付:{values_list["date"]}\n'
+            f'取引先名:{values_list["partner"]}\n'
+            f'金　　額:{values_list["amount"]}\n'
+            f'区　　分:{values_list["section"]}\n'
+        )
+
+        if values_list['not_adopted']:
+            mail_text += f'この{values_list["section"]}は採用されませんでした🙅‍\n'
+
+        mail_item.To = 'test@test.ne.jp'
+        mail_item.Subject = '電子取引データの送付について'  # 件名を設定
         mail_item.Body = mail_text  # 本文を設定
 
         # ファイルを添付
