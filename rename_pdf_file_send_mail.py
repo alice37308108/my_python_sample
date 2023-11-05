@@ -238,7 +238,7 @@ class PdfReader:
         )
 
         if values_list['not_adopted']:
-            mail_text += f'この{values_list["section"]}は採用されませんでした🙅‍\n'
+            mail_text += f'この{values_list["section"]}は採用されませんでした🤷\n'
 
         mail_item.To = 'test@test.ne.jp'
         mail_item.Subject = '電子取引データの送付について'  # 件名を設定
