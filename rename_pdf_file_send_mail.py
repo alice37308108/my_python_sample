@@ -17,13 +17,16 @@ class GuiFrontend:
         accepted_file_types = (('PDF Files', '*.pdf'),)
 
         layout = [
-            [sg.Text('PDF'), sg.InputText(key='DOC_NAME', enable_events=True, disabled=True),  # PDFファイルパスの入力フィールド
+            [sg.Text('PDF', size=(10, 1)), sg.InputText(key='DOC_NAME', enable_events=True, disabled=True),
+             # PDFファイルパスの入力フィールド
              sg.FileBrowse(file_types=accepted_file_types, button_text='選択'),  # ファイル選択ダイアログを表示するボタン
              sg.Button('前へ'),  # 前のページに移動するボタン
              sg.Button('次へ')],  # 次のページに移動するボタン
+            [sg.Text('保存先', size=(10, 1)), sg.InputText(key='SAVE_NAME', enable_events=True, disabled=True),
+             # PDFファイルパスの入力フィールド
+             sg.FolderBrowse(button_text='選択')],
             [sg.Image(data=None, key='IMAGE')],  # 画像を表示するためのイメージウィジェット
         ]
-
         return sg.Column(layout=layout, vertical_alignment='t', size=(700, 800))
 
     @staticmethod
@@ -176,10 +179,10 @@ class PdfReader:
 
             # メール送信ボタンが押されたらリネームしてメールを送信する
             if event == 'send_email_button':
-                new_filename, values_dict = self.process_rename(values)
+                new_filename, new_filepath, values_dict = self.process_rename(values)
                 # new_filenameがNoneでなければメールを送信する
                 if new_filename:
-                    renamed_file_path = os.path.join(os.path.dirname(self.doc_name), new_filename)
+                    renamed_file_path = os.path.join(os.path.dirname(new_filepath), new_filename)
                     self.send_email(renamed_file_path, values_dict)
 
     def process_rename(self, values):
@@ -190,12 +193,13 @@ class PdfReader:
         section = values['section_input']
         not_adopted = values['not_adopted_input']
         values_dict = {'date': date, 'partner': partner, 'amount': amount, 'section': section,
-                       'not_adopted': not_adopted,}
+                       'not_adopted': not_adopted}
 
-        new_filename = self.rename_pdf(date, partner, amount, section, not_adopted)
-        return new_filename, values_dict
+        save_folder = values['SAVE_NAME']  # 保存先フォルダを取得
+        new_filename, new_filepath = self.rename_pdf(date, partner, amount, section, not_adopted, save_folder)
+        return new_filename, new_filepath, values_dict
 
-    def rename_pdf(self, date, partner, amount, section, not_adopted):
+    def rename_pdf(self, date, partner, amount, section, not_adopted, save_folder):
         """PDFをリネームする"""
         if not date.isdigit() or len(date) != 8:
             sg.popup('日付を8桁の数字で入力してください')
@@ -214,14 +218,13 @@ class PdfReader:
             if self.doc_name:
                 self.backend.doc.close()  # ファイルを閉じる
                 new_filename = f'{date}_{partner}_{amount}_{section}{adopted_text}.pdf'
-                new_filepath = os.path.join(os.path.dirname(self.doc_name), new_filename)
-
+                new_filepath = os.path.join(save_folder, new_filename)  # 新しい保存先フォルダにパスを変更
                 os.rename(self.doc_name, new_filepath)
 
                 sg.popup(f'ファイル名を変更しました！ {new_filename}', title='完了')
                 self.window['IMAGE'].update(data=None)
                 self.window['DOC_NAME'].update(value='')
-                return new_filename
+                return new_filename, new_filepath
         else:
             sg.popup('すべて入力してください')
 
@@ -238,7 +241,7 @@ class PdfReader:
         )
 
         if values_list['not_adopted']:
-            mail_text += f'この{values_list["section"]}は採用されませんでした🤷\n'
+            mail_text += f'この{values_list["section"]}は採用されませんでした🙅‍\n'
 
         mail_item.To = 'test@test.ne.jp'
         mail_item.Subject = '電子取引データの送付について'  # 件名を設定
@@ -250,7 +253,6 @@ class PdfReader:
 
         # メールを表示（送信前確認）
         mail_item.Display()
-
 
 def main():
     gui = PdfReader()
