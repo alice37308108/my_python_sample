@@ -69,6 +69,7 @@ class GuiBackend:
     def set_doc(self, doc_name):
         """PDFドキュメントを設定する"""
         self.doc = fitz.open(doc_name)
+        self.doc_list_tab = []  # 新しいPDFファイルを開く際に表示リストを初期化
         file_name = os.path.basename(doc_name)
         return file_name
 
@@ -165,6 +166,8 @@ class PdfReader:
                     self.window['section_input'].update(value=section)
                     if not_adopted:
                         self.window['not_adopted_input'].update(value=True)
+                    else:
+                        self.window['not_adopted_input'].update(value=False)
 
             # doc_nameが指定されていないときにイベントが発生したら、何もしない
             if event and not self.doc_name:
@@ -217,7 +220,6 @@ class PdfReader:
         return None
 
 
-
     def process_rename(self, values):
         """リネーム処理を行う"""
         date = values['date_input']
@@ -246,12 +248,20 @@ class PdfReader:
             sg.popup('区分を入力してください')
             return
 
-        adopted_text = '_不' if not_adopted else ''
+        # ファイル名の前の文字が '不' だった場合
+        if not_adopted and self.doc_name.startswith('不'):
+            adopted_text = ''  # 何もしない
+        else:
+            adopted_text = '_不' if not_adopted else ''
+
         if date and partner and amount and section:
             if self.doc_name:
                 self.backend.doc.close()  # ファイルを閉じる
                 new_filename = f'{date}_{partner}_{amount}_{section}{adopted_text}.pdf'
-                new_filepath = os.path.join(save_folder, new_filename)  # 新しい保存先フォルダにパスを変更
+                if save_folder == '':
+                    new_filepath = os.path.join(os.path.dirname(self.doc_name), new_filename)
+                else:
+                    new_filepath = os.path.join(save_folder, new_filename)  # 新しい保存先フォルダにパスを変更
                 os.rename(self.doc_name, new_filepath)
 
                 sg.popup(f'ファイル名を変更しました！ {new_filename}', title='完了')
