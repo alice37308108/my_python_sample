@@ -1,4 +1,5 @@
 import os
+import re
 
 import PySimpleGUI as sg
 import fitz
@@ -60,6 +61,7 @@ class GuiFrontend:
 
 
 class GuiBackend:
+
     def __init__(self):
         self.doc = None
         self.doc_list_tab = []
@@ -149,10 +151,20 @@ class PdfReader:
                 self.doc_name = values['DOC_NAME']
                 file_name = self.backend.set_doc(self.doc_name)  # ファイル名を取得
                 self.window['DOC_NAME'].update(value=file_name)  # ファイル名を表示
-
                 self.total_page = self.backend.get_page_count()
                 self.page = 0
                 is_page_update = True
+
+                extracted_info = self.extract_info_from_filename(file_name)
+                if extracted_info:
+                    date, partner, amount, section, not_adopted = extracted_info
+                    # ファイル名から取得した情報を入力フィールドに代入
+                    self.window['date_input'].update(value=date)
+                    self.window['partner_input'].update(value=partner)
+                    self.window['amount_input'].update(value=amount)
+                    self.window['section_input'].update(value=section)
+                    if not_adopted:
+                        self.window['not_adopted_input'].update(value=True)
 
             # doc_nameが指定されていないときにイベントが発生したら、何もしない
             if event and not self.doc_name:
@@ -184,6 +196,27 @@ class PdfReader:
                 if new_filename:
                     renamed_file_path = os.path.join(os.path.dirname(new_filepath), new_filename)
                     self.send_email(renamed_file_path, values_dict)
+
+    @staticmethod
+    def extract_info_from_filename(file_name):
+        # ファイル名が「数値1_文字列1_数値2_文字列2_不」の場合
+        match_condition1 = re.match(r'(\d+)_(\w+)_(\d+)_(\w+)_不\.pdf', file_name)
+        if match_condition1:
+            date, partner, amount, section = match_condition1.groups()
+            not_adopted = True  # 不がある場合はTrue
+            return date, partner, amount, section, not_adopted
+
+        # ファイル名が「数値1_文字列1_数値2_文字列2」の場合
+        match_condition2 = re.match(r'(\d+)_(\w+)_(\d+)_(\w+)\.pdf', file_name)
+        if match_condition2:
+            date, partner, amount, section = match_condition2.groups()
+            not_adopted = False  # 不がない場合はFalse
+            return date, partner, amount, section, not_adopted
+
+        # どちらの条件にもマッチしない場合はNoneを返す
+        return None
+
+
 
     def process_rename(self, values):
         """リネーム処理を行う"""
@@ -228,7 +261,8 @@ class PdfReader:
         else:
             sg.popup('すべて入力してください')
 
-    def send_email(self, file_path, values_list):
+    @staticmethod
+    def send_email(file_path, values_list):
         outlook = win32.Dispatch('Outlook.Application')
         mail_item = outlook.CreateItem(0)  # メールアイテムを作成
 
