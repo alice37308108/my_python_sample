@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import PureWindowsPath, Path
 
 import PySimpleGUI as sg
 import fitz
@@ -219,7 +220,6 @@ class PdfReader:
         # どちらの条件にもマッチしない場合はNoneを返す
         return None
 
-
     def process_rename(self, values):
         """リネーム処理を行う"""
         date = values['date_input']
@@ -258,16 +258,18 @@ class PdfReader:
             if self.doc_name:
                 self.backend.doc.close()  # ファイルを閉じる
                 new_filename = f'{date}_{partner}_{amount}_{section}{adopted_text}.pdf'
-                if save_folder == '':
-                    new_filepath = os.path.join(os.path.dirname(self.doc_name), new_filename)
-                else:
-                    new_filepath = os.path.join(save_folder, new_filename)  # 新しい保存先フォルダにパスを変更
-                os.rename(self.doc_name, new_filepath)
+
+                # pathlibを使用してパスを作成
+                new_filepath = PureWindowsPath(save_folder) / new_filename if save_folder else PureWindowsPath(
+                    self.doc_name).parent / new_filename
+
+                # ファイルの移動
+                Path(self.doc_name).rename(new_filepath)
 
                 sg.popup(f'ファイル名を変更しました！ {new_filename}', title='完了')
                 self.window['IMAGE'].update(data=None)
                 self.window['DOC_NAME'].update(value='')
-                return new_filename, new_filepath
+                return new_filename, str(new_filepath)
         else:
             sg.popup('すべて入力してください')
 
@@ -297,6 +299,7 @@ class PdfReader:
 
         # メールを表示（送信前確認）
         mail_item.Display()
+
 
 def main():
     gui = PdfReader()
