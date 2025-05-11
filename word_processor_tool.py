@@ -1,11 +1,12 @@
 # pip install python-docx pywin32
+import os
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-import os
+
 import docx
 import win32com.client as win32
-import threading
 
 
 def convert_doc_to_docx(doc_file_path):
